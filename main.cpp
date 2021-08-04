@@ -49,9 +49,6 @@ int main(int argc, char* argv[]) {
     getMyAddr(argv[1]);
     getGatewayIP();
 
-    printf("%s %s\n",myIP,myMAC);
-    printf("%s\n",gatewayIP);
-
 
     sendARPRequest(argv[1],gatewayIP);
 
@@ -145,7 +142,6 @@ const char* getMACAddr(char *IP)
     while(fgets(line,MAX_STR_SIZE,fp)!=NULL)
     {
 
-        printf("%s\n",line);
         ptr = strtok(line," ");
         ptr = strtok(NULL," ");
         if(!strncmp((ptr+1),IP,len))
@@ -171,7 +167,6 @@ const char* getMACAddr(char *IP)
 
 void sendARPRequest(char* dev, const char *target_IP)
 {
-    printf("%s %s\n",dev, target_IP);
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* handle = pcap_open_live(dev, 0, 0, 0, errbuf);
     if (handle == nullptr) {
@@ -217,6 +212,7 @@ void sendARPReply(char* dev, char* sender_IP, char* target_IP)
     EthArpPacket packet;
 
     sendARPRequest(dev,sender_IP);
+    
     const char* sender_MAC = getMACAddr(sender_IP);
 
     packet.eth_.smac_ = Mac(myMAC);                // me
